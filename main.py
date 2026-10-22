@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
@@ -73,8 +73,36 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/tasks", tags=["tasks"], summary="List all tasks")
-def list_tasks():
+SEED = [dict(t) for t in tasks]
+
+
+@app.get("/tasks", tags=["tasks"], summary="List tasks (optional filter, search and pagination)")
+def list_tasks(
+    done: bool | None = Query(default=None, description="Only finished (true) or open (false) tasks"),
+    search: str | None = Query(default=None, description="Case-insensitive text search in the title"),
+    limit: int | None = Query(default=None, ge=1, le=100, description="Page size"),
+    offset: int = Query(default=0, ge=0, description="How many tasks to skip"),
+):
+    result = tasks
+    if done is not None:
+        result = [t for t in result if t["done"] == done]
+    if search:
+        result = [t for t in result if search.lower() in t["title"].lower()]
+    result = result[offset:]
+    return result[:limit] if limit else result
+
+
+@app.get("/stats", tags=["extras"], summary="Counts of all, finished and open tasks")
+def stats():
+    done = sum(1 for t in tasks if t["done"])
+    return {"total": len(tasks), "done": done, "open": len(tasks) - done}
+
+
+@app.post("/reset", tags=["extras"], summary="Restore the three example tasks")
+def reset():
+    global next_id
+    tasks[:] = [dict(t) for t in SEED]
+    next_id = max(t["id"] for t in tasks) + 1
     return tasks
 
 
