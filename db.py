@@ -52,3 +52,35 @@ def create_task(title: str) -> dict:
         cur = conn.execute("INSERT INTO tasks (title, done) VALUES (?, ?)", (title, 0))
         new_id = cur.lastrowid
     return get_task(new_id)
+
+
+def update_task(task_id: int, title: str | None, done: bool | None) -> dict | None:
+    current = get_task(task_id)
+    if current is None:
+        return None
+    new_title = title if title is not None else current["title"]
+    new_done = done if done is not None else current["done"]
+    with connect() as conn:
+        conn.execute("UPDATE tasks SET title = ?, done = ? WHERE id = ?", (new_title, int(new_done), task_id))
+    return get_task(task_id)
+
+
+def delete_task(task_id: int) -> bool:
+    with connect() as conn:
+        cur = conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    return cur.rowcount == 1
+
+
+def stats() -> dict:
+    with connect() as conn:
+        total, done = conn.execute("SELECT COUNT(*), COALESCE(SUM(done), 0) FROM tasks").fetchone()
+    return {"total": total, "done": done, "open": total - done}
+
+
+def reset() -> list[dict]:
+    """Delete everything and re-seed, as one transaction (all-or-nothing)."""
+    with connect() as conn:
+        conn.execute("DELETE FROM tasks")
+        conn.execute("DELETE FROM sqlite_sequence WHERE name = 'tasks'")
+        conn.executemany("INSERT INTO tasks (title, done) VALUES (?, ?)", SEED)
+    return list_tasks()

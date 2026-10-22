@@ -8,21 +8,12 @@ import db
 app = FastAPI(
     title="Task API",
     version="1.0",
-    description="A small to-do API: full CRUD on an in-memory task list (FlyRank Backend track, A1).",
+    description="A small to-do API: full CRUD on an SQLite database (FlyRank Backend track, A2).",
 )
 
 db.init_db()
 
 ERROR = {"content": {"application/json": {"example": {"error": "Task 99 not found"}}}}
-
-# In-memory "database": gone when the server stops (that's the lesson of A1).
-tasks: list[dict] = [
-    {"id": 1, "title": "Read the A1 brief", "done": True},
-    {"id": 2, "title": "Build the CRUD API", "done": False},
-    {"id": 3, "title": "Publish to GitHub", "done": False},
-]
-next_id = 4  # ids are never reused, even after a delete
-
 
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -63,10 +54,6 @@ def not_found(task_id: int) -> JSONResponse:
     return JSONResponse(status_code=404, content={"error": f"Task {task_id} not found"})
 
 
-def find(task_id: int) -> dict | None:
-    return next((t for t in tasks if t["id"] == task_id), None)
-
-
 @app.get("/", tags=["meta"], summary="Describe this API")
 def root():
     return {"name": "Task API", "version": "1.0", "endpoints": ["/tasks"]}
@@ -75,9 +62,6 @@ def root():
 @app.get("/health", tags=["meta"], summary="Liveness check")
 def health():
     return {"status": "ok"}
-
-
-SEED = [dict(t) for t in tasks]
 
 
 @app.get("/tasks", tags=["tasks"], summary="List tasks (optional filter, search and pagination)")
@@ -98,16 +82,12 @@ def list_tasks(
 
 @app.get("/stats", tags=["extras"], summary="Counts of all, finished and open tasks")
 def stats():
-    done = sum(1 for t in tasks if t["done"])
-    return {"total": len(tasks), "done": done, "open": len(tasks) - done}
+    return db.stats()
 
 
 @app.post("/reset", tags=["extras"], summary="Restore the three example tasks")
 def reset():
-    global next_id
-    tasks[:] = [dict(t) for t in SEED]
-    next_id = max(t["id"] for t in tasks) + 1
-    return tasks
+    return db.reset()
 
 
 @app.get("/tasks/{task_id}", tags=["tasks"], summary="Get one task", responses={404: {"description": "Unknown id", **ERROR}})
@@ -123,22 +103,14 @@ def create_task(body: TaskCreate):
 
 @app.put("/tasks/{task_id}", tags=["tasks"], summary="Update a task's title and/or done flag", responses={400: {"description": "Empty or invalid body"}, 404: {"description": "Unknown id", **ERROR}})
 def update_task(task_id: int, body: TaskUpdate):
-    task = find(task_id)
-    if not task:
-        return not_found(task_id)
     if body.title is None and body.done is None:
         return bad_request("body must contain 'title' and/or 'done'")
-    if body.title is not None:
-        task["title"] = body.title
-    if body.done is not None:
-        task["done"] = body.done
-    return task
+    task = db.update_task(task_id, body.title, body.done)
+    return task if task else not_found(task_id)
 
 
 @app.delete("/tasks/{task_id}", status_code=204, tags=["tasks"], summary="Delete a task", responses={404: {"description": "Unknown id", **ERROR}})
 def delete_task(task_id: int):
-    task = find(task_id)
-    if not task:
+    if not db.delete_task(task_id):
         return not_found(task_id)
-    tasks.remove(task)
     return Response(status_code=204)
