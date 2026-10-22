@@ -15,6 +15,7 @@ db.init_db()
 
 ERROR = {"content": {"application/json": {"example": {"error": "Task 99 not found"}}}}
 
+
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
 
