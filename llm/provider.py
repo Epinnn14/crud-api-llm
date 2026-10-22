@@ -99,8 +99,9 @@ class OpenAICompatible:
             started = time.monotonic()
             base = {**tag, "model": self.model, "attempt": attempt}
             try:
+                extra = {"response_format": {"type": "json_object"}} if os.environ.get("LLM_JSON_MODE") == "1" else {}
                 res = self.client.chat.completions.create(model=self.model, messages=messages, temperature=0,
-                                                          timeout=min(self.timeout, remaining))
+                                                          timeout=min(self.timeout, remaining), **extra)
             except RETRYABLE as e:
                 logs.call({**base, "outcome": outcome_of(e), "input_tokens": 0, "output_tokens": 0,
                            "duration_ms": round((time.monotonic() - started) * 1000)})

@@ -23,6 +23,7 @@ class OutputRejected(Exception):
 class Result:
     triage: Triage
     repaired: bool
+    model: str = ""
 
 
 def parse(text: str | None) -> dict:
@@ -58,7 +59,7 @@ def run(note: str, llm: Provider, version: str) -> Result:
     deadline = time.monotonic() + env_float("LLM_DEADLINE", 45.0)   # one budget for the whole request
     first = llm.complete(messages, deadline=deadline, tag={"prompt_version": version, "repair": False})
     try:
-        return Result(validate(first.text), repaired=False)
+        return Result(validate(first.text), repaired=False, model=first.model)
     except (ValueError, ValidationError) as e:
         first_error = describe(e)
 
@@ -70,7 +71,7 @@ def run(note: str, llm: Provider, version: str) -> Result:
     ]
     second = llm.complete(repair, deadline=deadline, tag={"prompt_version": version, "repair": True})
     try:
-        return Result(validate(second.text), repaired=True)
+        return Result(validate(second.text), repaired=True, model=second.model)
     except (ValueError, ValidationError) as e:
         second_error = describe(e)
 

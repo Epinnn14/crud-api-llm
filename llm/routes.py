@@ -4,7 +4,7 @@ import os
 from fastapi import APIRouter, Response
 from fastapi.responses import JSONResponse
 
-from llm import prompt, provider, triage as triage_service
+from llm import cache, prompt, provider, triage as triage_service
 from llm.schema import STUB, Category, Priority, Triage, TriageRequest
 
 router = APIRouter(tags=["ai"])
@@ -33,6 +33,10 @@ def triage(body: TriageRequest, response: Response):
         response.headers["X-Triage-Source"] = "fallback"
         return fallback(body.text)
     version = prompt.prompt_version()
+    cache_key = cache.key(body.text, version)
+    if (hit := cache.get(cache_key)) is not None:
+        response.headers["X-Triage-Source"] = "cache"                   # same input + prompt + model: no call
+        return hit
     try:
         result = triage_service.run(body.text, provider.from_env(), version)
     except provider.ProviderError as e:
@@ -43,6 +47,9 @@ def triage(body: TriageRequest, response: Response):
             "error": "The model's answer did not match the schema, even after one repair attempt. "
                      "It was quarantined for review.",
             "reason": str(e), "prompt_version": version})
+    cache.put(cache_key, result.triage)
     response.headers["X-Triage-Source"] = "model"
+    response.headers["X-Triage-Model"] = result.model
+    response.headers["X-Triage-Prompt"] = version
     response.headers["X-Triage-Repaired"] = str(result.repaired).lower()
     return result.triage
