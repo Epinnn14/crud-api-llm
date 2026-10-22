@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass
 
 from pydantic import ValidationError
 
 from llm import logs, prompt
-from llm.provider import Provider
+from llm.provider import Provider, env_float
 from llm.schema import Triage
 
 FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
@@ -54,7 +55,8 @@ def validate(text: str | None) -> Triage:
 
 def run(note: str, llm: Provider, version: str) -> Result:
     messages = prompt.build_messages(note, version)
-    first = llm.complete(messages)
+    deadline = time.monotonic() + env_float("LLM_DEADLINE", 45.0)   # one budget for the whole request
+    first = llm.complete(messages, deadline=deadline, tag={"prompt_version": version, "repair": False})
     try:
         return Result(validate(first.text), repaired=False)
     except (ValueError, ValidationError) as e:
@@ -66,7 +68,7 @@ def run(note: str, llm: Provider, version: str) -> Result:
         {"role": "user", "content": f"Your previous answer was rejected for this reason: {first_error}. "
                                     "Return only corrected JSON matching the schema."},
     ]
-    second = llm.complete(repair)
+    second = llm.complete(repair, deadline=deadline, tag={"prompt_version": version, "repair": True})
     try:
         return Result(validate(second.text), repaired=True)
     except (ValueError, ValidationError) as e:
