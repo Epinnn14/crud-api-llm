@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
@@ -23,6 +23,22 @@ class TaskCreate(BaseModel):
         if not v.strip():
             raise ValueError("title must not be empty")
         return v.strip()
+
+
+class TaskUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    done: bool | None = None
+
+    @field_validator("title")
+    @classmethod
+    def title_not_blank(cls, v: str | None) -> str | None:
+        if v is not None and not v.strip():
+            raise ValueError("title must not be empty")
+        return v.strip() if v else v
+
+
+def bad_request(message: str) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"error": message})
 
 
 @app.exception_handler(RequestValidationError)
@@ -69,3 +85,26 @@ def create_task(body: TaskCreate):
     next_id += 1
     tasks.append(task)
     return task
+
+
+@app.put("/tasks/{task_id}")
+def update_task(task_id: int, body: TaskUpdate):
+    task = find(task_id)
+    if not task:
+        return not_found(task_id)
+    if body.title is None and body.done is None:
+        return bad_request("body must contain 'title' and/or 'done'")
+    if body.title is not None:
+        task["title"] = body.title
+    if body.done is not None:
+        task["done"] = body.done
+    return task
+
+
+@app.delete("/tasks/{task_id}", status_code=204)
+def delete_task(task_id: int):
+    task = find(task_id)
+    if not task:
+        return not_found(task_id)
+    tasks.remove(task)
+    return Response(status_code=204)
