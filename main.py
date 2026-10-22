@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import FastAPI, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -68,17 +70,12 @@ def health():
 @app.get("/tasks", tags=["tasks"], summary="List tasks (optional filter, search and pagination)")
 def list_tasks(
     done: bool | None = Query(default=None, description="Only finished (true) or open (false) tasks"),
-    search: str | None = Query(default=None, description="Case-insensitive text search in the title"),
+    search: str | None = Query(default=None, description="Case-insensitive text search in the title (SQL LIKE)"),
+    sort: Literal["id", "title", "created_at"] = Query(default="id", description="Sort order"),
     limit: int | None = Query(default=None, ge=1, le=100, description="Page size"),
     offset: int = Query(default=0, ge=0, description="How many tasks to skip"),
 ):
-    result = db.list_tasks()
-    if done is not None:
-        result = [t for t in result if t["done"] == done]
-    if search:
-        result = [t for t in result if search.lower() in t["title"].lower()]
-    result = result[offset:]
-    return result[:limit] if limit else result
+    return db.list_tasks(done=done, search=search, sort=sort, limit=limit, offset=offset)
 
 
 @app.get("/stats", tags=["extras"], summary="Counts of all, finished and open tasks")

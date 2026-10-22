@@ -22,23 +22,56 @@ def init_db() -> None:
     with connect() as conn:
         conn.execute(
             """CREATE TABLE IF NOT EXISTS tasks (
-                   id    INTEGER PRIMARY KEY AUTOINCREMENT,
-                   title TEXT    NOT NULL,
-                   done  INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0, 1))
+                   id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                   title      TEXT    NOT NULL,
+                   done       INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0, 1)),
+                   created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                   updated_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                )"""
         )
+        # A database created by an earlier version has no timestamp columns: add them (a tiny hand-made migration).
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(tasks)")}
+        for col in ("created_at", "updated_at"):
+            if col not in columns:
+                conn.execute(f"ALTER TABLE tasks ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
+        # The done filter is the most common query, so it gets an index.
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_done ON tasks (done)")
         (count,) = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()
         if count == 0:
             conn.executemany("INSERT INTO tasks (title, done) VALUES (?, ?)", SEED)
 
 
 def to_task(row: sqlite3.Row) -> dict:
-    return {"id": row["id"], "title": row["title"], "done": bool(row["done"])}
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "done": bool(row["done"]),
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
 
 
-def list_tasks() -> list[dict]:
+SORTS = {"id": "id", "title": "title COLLATE NOCASE", "created_at": "created_at"}
+
+
+def list_tasks(done: bool | None = None, search: str | None = None, sort: str = "id",
+               limit: int | None = None, offset: int = 0) -> list[dict]:
+    """Filtering, searching, sorting and paging all happen in SQL, not in a Python loop."""
+    where, params = [], []
+    if done is not None:
+        where.append("done = ?")
+        params.append(int(done))
+    if search:
+        where.append("title LIKE ?")
+        params.append(f"%{search}%")
+    sql = "SELECT * FROM tasks"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += f" ORDER BY {SORTS[sort]}, id"  # sort comes from a fixed whitelist, never from raw user text
+    sql += " LIMIT ? OFFSET ?"
+    params += [limit if limit is not None else -1, offset]
     with connect() as conn:
-        return [to_task(r) for r in conn.execute("SELECT * FROM tasks ORDER BY id")]
+        return [to_task(r) for r in conn.execute(sql, params)]
 
 
 def get_task(task_id: int) -> dict | None:
@@ -61,7 +94,10 @@ def update_task(task_id: int, title: str | None, done: bool | None) -> dict | No
     new_title = title if title is not None else current["title"]
     new_done = done if done is not None else current["done"]
     with connect() as conn:
-        conn.execute("UPDATE tasks SET title = ?, done = ? WHERE id = ?", (new_title, int(new_done), task_id))
+        conn.execute(
+            "UPDATE tasks SET title = ?, done = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
+            (new_title, int(new_done), task_id),
+        )
     return get_task(task_id)
 
 

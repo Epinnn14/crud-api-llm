@@ -31,7 +31,8 @@ def test_unknown_id_is_404_with_error():
 def test_create_201_and_listed():
     r = client.post("/tasks", json={"title": "Buy milk"})
     assert r.status_code == 201
-    assert r.json() == {"id": 4, "title": "Buy milk", "done": False}
+    task = r.json()
+    assert {k: task[k] for k in ("id", "title", "done")} == {"id": 4, "title": "Buy milk", "done": False}
     assert any(t["title"] == "Buy milk" for t in client.get("/tasks").json())
 
 
@@ -67,3 +68,26 @@ def test_extras_filter_search_stats_pagination():
     assert [t["id"] for t in client.get("/tasks?search=github").json()] == [3]
     assert client.get("/stats").json() == {"total": 3, "done": 2, "open": 1}
     assert [t["id"] for t in client.get("/tasks?limit=2&offset=1").json()] == [2, 3]
+
+
+def test_sorting_and_timestamps():
+    client.post("/tasks", json={"title": "apple"})
+    titles = [t["title"] for t in client.get("/tasks?sort=title").json()]
+    assert titles == sorted(titles, key=str.lower)
+    t = client.get("/tasks/1").json()
+    assert t["created_at"].endswith("Z") and t["updated_at"]
+
+
+def test_data_survives_a_new_connection_like_a_restart():
+    """Persistence: re-import the app as if the server restarted; the created task is still there."""
+    import importlib
+    new_id = client.post("/tasks", json={"title": "persist me"}).json()["id"]
+    importlib.reload(main)
+    fresh = TestClient(main.app)
+    assert fresh.get(f"/tasks/{new_id}").json()["title"] == "persist me"
+    assert len(fresh.get("/tasks").json()) == 4  # seed did not run again
+
+
+def test_sql_injection_attempt_is_just_text():
+    r = client.get("/tasks", params={"search": "x' OR '1'='1"})
+    assert r.status_code == 200 and r.json() == []
