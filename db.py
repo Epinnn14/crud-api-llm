@@ -30,3 +30,18 @@ def init_db() -> None:
         (count,) = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()
         if count == 0:
             conn.executemany("INSERT INTO tasks (title, done) VALUES (?, ?)", SEED)
+
+
+def to_task(row: sqlite3.Row) -> dict:
+    return {"id": row["id"], "title": row["title"], "done": bool(row["done"])}
+
+
+def list_tasks() -> list[dict]:
+    with connect() as conn:
+        return [to_task(r) for r in conn.execute("SELECT * FROM tasks ORDER BY id")]
+
+
+def get_task(task_id: int) -> dict | None:
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    return to_task(row) if row else None

@@ -87,7 +87,7 @@ def list_tasks(
     limit: int | None = Query(default=None, ge=1, le=100, description="Page size"),
     offset: int = Query(default=0, ge=0, description="How many tasks to skip"),
 ):
-    result = tasks
+    result = db.list_tasks()
     if done is not None:
         result = [t for t in result if t["done"] == done]
     if search:
@@ -112,7 +112,7 @@ def reset():
 
 @app.get("/tasks/{task_id}", tags=["tasks"], summary="Get one task", responses={404: {"description": "Unknown id", **ERROR}})
 def get_task(task_id: int):
-    task = find(task_id)
+    task = db.get_task(task_id)
     return task if task else not_found(task_id)
 
 
