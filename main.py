@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 import db
+from llm.routes import router as llm_router
 
 app = FastAPI(
     title="Task API",
@@ -14,6 +15,7 @@ app = FastAPI(
 )
 
 db.init_db()
+app.include_router(llm_router)  # A17: the AI endpoint lives in llm/, the task routes below are unchanged
 
 ERROR = {"content": {"application/json": {"example": {"error": "Task 99 not found"}}}}
 
