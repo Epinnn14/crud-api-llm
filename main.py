@@ -118,11 +118,7 @@ def get_task(task_id: int):
 
 @app.post("/tasks", status_code=201, tags=["tasks"], summary="Create a task", responses={400: {"description": "Missing or empty title"}})
 def create_task(body: TaskCreate):
-    global next_id
-    task = {"id": next_id, "title": body.title, "done": False}
-    next_id += 1
-    tasks.append(task)
-    return task
+    return db.create_task(body.title)
 
 
 @app.put("/tasks/{task_id}", tags=["tasks"], summary="Update a task's title and/or done flag", responses={400: {"description": "Empty or invalid body"}, 404: {"description": "Unknown id", **ERROR}})

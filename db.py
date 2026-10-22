@@ -45,3 +45,10 @@ def get_task(task_id: int) -> dict | None:
     with connect() as conn:
         row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
     return to_task(row) if row else None
+
+
+def create_task(title: str) -> dict:
+    with connect() as conn:
+        cur = conn.execute("INSERT INTO tasks (title, done) VALUES (?, ?)", (title, 0))
+        new_id = cur.lastrowid
+    return get_task(new_id)
