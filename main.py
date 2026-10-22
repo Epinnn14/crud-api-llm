@@ -3,7 +3,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
-app = FastAPI(title="Task API", version="1.0")
+app = FastAPI(
+    title="Task API",
+    version="1.0",
+    description="A small to-do API: full CRUD on an in-memory task list (FlyRank Backend track, A1).",
+)
+
+ERROR = {"content": {"application/json": {"example": {"error": "Task 99 not found"}}}}
 
 # In-memory "database": gone when the server stops (that's the lesson of A1).
 tasks: list[dict] = [
@@ -57,28 +63,28 @@ def find(task_id: int) -> dict | None:
     return next((t for t in tasks if t["id"] == task_id), None)
 
 
-@app.get("/")
+@app.get("/", tags=["meta"], summary="Describe this API")
 def root():
     return {"name": "Task API", "version": "1.0", "endpoints": ["/tasks"]}
 
 
-@app.get("/health")
+@app.get("/health", tags=["meta"], summary="Liveness check")
 def health():
     return {"status": "ok"}
 
 
-@app.get("/tasks")
+@app.get("/tasks", tags=["tasks"], summary="List all tasks")
 def list_tasks():
     return tasks
 
 
-@app.get("/tasks/{task_id}")
+@app.get("/tasks/{task_id}", tags=["tasks"], summary="Get one task", responses={404: {"description": "Unknown id", **ERROR}})
 def get_task(task_id: int):
     task = find(task_id)
     return task if task else not_found(task_id)
 
 
-@app.post("/tasks", status_code=201)
+@app.post("/tasks", status_code=201, tags=["tasks"], summary="Create a task", responses={400: {"description": "Missing or empty title"}})
 def create_task(body: TaskCreate):
     global next_id
     task = {"id": next_id, "title": body.title, "done": False}
@@ -87,7 +93,7 @@ def create_task(body: TaskCreate):
     return task
 
 
-@app.put("/tasks/{task_id}")
+@app.put("/tasks/{task_id}", tags=["tasks"], summary="Update a task's title and/or done flag", responses={400: {"description": "Empty or invalid body"}, 404: {"description": "Unknown id", **ERROR}})
 def update_task(task_id: int, body: TaskUpdate):
     task = find(task_id)
     if not task:
@@ -101,7 +107,7 @@ def update_task(task_id: int, body: TaskUpdate):
     return task
 
 
-@app.delete("/tasks/{task_id}", status_code=204)
+@app.delete("/tasks/{task_id}", status_code=204, tags=["tasks"], summary="Delete a task", responses={404: {"description": "Unknown id", **ERROR}})
 def delete_task(task_id: int):
     task = find(task_id)
     if not task:
