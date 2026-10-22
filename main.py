@@ -3,11 +3,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
+import db
+
 app = FastAPI(
     title="Task API",
     version="1.0",
     description="A small to-do API: full CRUD on an in-memory task list (FlyRank Backend track, A1).",
 )
+
+db.init_db()
 
 ERROR = {"content": {"application/json": {"example": {"error": "Task 99 not found"}}}}
 
