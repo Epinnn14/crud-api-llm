@@ -4,7 +4,7 @@ import os
 from fastapi import APIRouter, Response
 from fastapi.responses import JSONResponse
 
-from llm import provider, prompt
+from llm import prompt, provider, triage as triage_service
 from llm.schema import STUB, Triage, TriageRequest
 
 router = APIRouter(tags=["ai"])
@@ -17,6 +17,14 @@ def triage(body: TriageRequest, response: Response):
         response.headers["X-Triage-Source"] = "stub"
         return STUB
     version = prompt.prompt_version()
-    completion = provider.from_env().complete(prompt.build_messages(body.text, version))
-    # Stage 2 only: show what the model said, so we can read it with our own eyes. Stage 3 validates it.
-    return JSONResponse({"raw": completion.text, "prompt_version": version, "model": completion.model})
+    try:
+        result = triage_service.run(body.text, provider.from_env(), version)
+    except triage_service.OutputRejected as e:
+        # never the raw model text: our own message, and the reason in schema terms
+        return JSONResponse(status_code=422, content={
+            "error": "The model's answer did not match the schema, even after one repair attempt. "
+                     "It was quarantined for review.",
+            "reason": str(e), "prompt_version": version})
+    response.headers["X-Triage-Source"] = "model"
+    response.headers["X-Triage-Repaired"] = str(result.repaired).lower()
+    return result.triage
