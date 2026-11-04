@@ -1,0 +1,166 @@
+{
+  "date": "2026-11-04",
+  "set": "core",
+  "score": "8/8",
+  "priority": "7/8",
+  "models": [
+    "dots-studio/dots-3-note-preview:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "recursive/flint-v1.0:free"
+  ],
+  "rows": [
+    {
+      "id": "c1",
+      "kind": "easy",
+      "status": 200,
+      "source": "model",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "repaired": "false",
+      "expected": {
+        "category": "finance",
+        "priority": "high"
+      },
+      "got": {
+        "category": "finance",
+        "priority": "high",
+        "confidence": 0.95
+      },
+      "title": "Transfer rent to landlord",
+      "pass": true
+    },
+    {
+      "id": "c2",
+      "kind": "easy",
+      "status": 200,
+      "source": "model",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "repaired": "false",
+      "expected": {
+        "category": "errand",
+        "priority": "low"
+      },
+      "got": {
+        "category": "errand",
+        "priority": "normal",
+        "confidence": 0.9
+      },
+      "title": "Buy milk, eggs, and coffee",
+      "pass": true
+    },
+    {
+      "id": "c3",
+      "kind": "easy",
+      "status": 200,
+      "source": "model",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "repaired": "false",
+      "expected": {
+        "category": "work",
+        "priority": "normal"
+      },
+      "got": {
+        "category": "work",
+        "priority": "normal",
+        "confidence": 0.9
+      },
+      "title": "Prepare slides for Monday's client meeting",
+      "pass": true
+    },
+    {
+      "id": "c4",
+      "kind": "easy",
+      "status": 200,
+      "source": "model",
+      "model": "recursive/flint-v1.0:free",
+      "repaired": "false",
+      "expected": {
+        "category": "health",
+        "priority": "normal"
+      },
+      "got": {
+        "category": "health",
+        "priority": "normal",
+        "confidence": 0.9
+      },
+      "title": "Call dentist to confirm",
+      "pass": true
+    },
+    {
+      "id": "c5",
+      "kind": "ambiguous",
+      "status": 200,
+      "source": "model",
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "repaired": "false",
+      "expected": {
+        "category": "personal",
+        "priority": "normal"
+      },
+      "got": {
+        "category": "personal",
+        "priority": "normal",
+        "confidence": 0.9
+      },
+      "title": "Buy mom a birthday gift and call her",
+      "pass": true
+    },
+    {
+      "id": "c6",
+      "kind": "easy",
+      "status": 200,
+      "source": "model",
+      "model": "recursive/flint-v1.0:free",
+      "repaired": "false",
+      "expected": {
+        "category": "work",
+        "priority": "high"
+      },
+      "got": {
+        "category": "work",
+        "priority": "high",
+        "confidence": 0.9
+      },
+      "title": "Fix production server",
+      "pass": true
+    },
+    {
+      "id": "c7",
+      "kind": "unsure",
+      "status": 200,
+      "source": "model",
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "repaired": "false",
+      "expected": {
+        "category": "other",
+        "priority": "normal"
+      },
+      "got": {
+        "category": "other",
+        "priority": "normal",
+        "confidence": 0.2
+      },
+      "title": "Follow up on yesterday's item",
+      "pass": true
+    },
+    {
+      "id": "c8",
+      "kind": "ambiguous",
+      "status": 200,
+      "source": "model",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "repaired": "false",
+      "expected": {
+        "category": "finance",
+        "priority": "normal"
+      },
+      "got": {
+        "category": "finance",
+        "priority": "normal",
+        "confidence": 0.9
+      },
+      "title": "Check pharmacy charge on credit card statement",
+      "pass": true
+    }
+  ]
+}
