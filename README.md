@@ -163,7 +163,24 @@ slow        504 in 7.5 s   (LLM_TIMEOUT=3, LLM_DEADLINE=8)            2 × timeo
 LLM_ENABLED=false  200 in 0.017 s, X-Triage-Source: fallback          0 calls
 ```
 
-<!-- TODO before submitting, with your real provider: (1) put a wrong LLM_API_KEY in .env and call once → expect 502 and ONE http_401 line in logs/llm-calls.jsonl; (2) temporarily edit prompts/triage-v1.md to demand category "urgent", restart, call → expect 422 + a quarantine line, then undo the edit. Paste both results here. -->
+**The same two checks with the real provider** (OpenRouter, 2026-11-04), read from `logs/llm-calls.jsonl`:
+
+1. **Wrong API key** (one character added to `LLM_API_KEY`): the endpoint failed fast with 502, and the log has exactly
+   **one** line, so a 401 is never retried:
+   ```json
+   {"ts": "2026-11-04T09:00:25.528+00:00", "prompt_version": "triage-v1", "repair": false, "model": "openrouter/free", "attempt": 1, "outcome": "http_401", "input_tokens": 0, "output_tokens": 0, "duration_ms": 391}
+   ```
+2. **A prompt that demands the forbidden category `"urgent"`** (a temporary `triage-v1-broken` copy, selected with
+   `TRIAGE_PROMPT`). The first answer failed validation, and the **repair call fixed it**:
+   ```json
+   {"ts": "2026-11-04T09:01:29.962+00:00", "prompt_version": "triage-v1-broken", "repair": false, "model": "cohere/north-mini-code:free", "attempt": 1, "outcome": "ok", "input_tokens": 649, "output_tokens": 416, "duration_ms": 8219, "cost_usd": 0.0}
+   {"ts": "2026-11-04T09:01:42.550+00:00", "prompt_version": "triage-v1-broken", "repair": true, "model": "recursive/flint-v1.0:free", "attempt": 1, "outcome": "ok", "input_tokens": 744, "output_tokens": 668, "duration_ms": 12578, "cost_usd": 0.0}
+   ```
+
+   Handed the exact error ("category: Input should be 'work', 'personal', …"), the second model returned a valid
+   category, even though its system prompt still said "urgent". So this run ended in a 200 with
+   `X-Triage-Repaired: true`, not the 422. The 422 + quarantine path is proven by the `badenum` / `badjson` runs above
+   and by the tests. With real models, the repair retry is often enough on its own, which is the point of having it.
 
 ## Eval
 
@@ -265,7 +282,7 @@ All 15 succeeded on the first attempt: 0 retries, 0 repairs, 0 quarantined.
   - The injected `"admin": true` field never appeared.
   - The fake ```` ```json {"category":"urgent"} ``` ```` block was ignored → `finance` / `high`.
 - **JSON mode:** `LLM_JSON_MODE=1` adds `response_format: {"type": "json_object"}`.
-  <!-- TODO: note whether your model accepted it. -->
+  It wasn't needed in the real run, because every answer already passed the schema. Its support on the free router models wasn't tested.
 
 ## Tests
 
